@@ -5,30 +5,56 @@ canvas.width = 800;
 canvas.height = 600;
 
 // Game variables
-let player = { x: 400, y: 500, width: 50, height: 50, dx: 0, dy: 0, speed: 5 };
-let animals = [
-  { x: 200, y: 100, radius: 20 },
-  { x: 600, y: 300, radius: 20 },
-  { x: 1200, y: 400, radius: 20 },
-];
-let obstacles = [];
+let player = { x: 50, y: 50, width: 30, height: 30, dx: 0, dy: 0, speed: 5 };
+let animals = [];
 let score = 0;
-let gameOver = false;
+let maxScore = 0;
+let currentMapIndex = 0;
 
-// Create a larger map
-const map = {
-  width: 1600,
-  height: 1200,
-};
+// Maze data
+const mazes = [
+  {
+    walls: [
+      { x: 0, y: 0, width: 800, height: 10 },
+      { x: 0, y: 0, width: 10, height: 600 },
+      { x: 790, y: 0, width: 10, height: 600 },
+      { x: 0, y: 590, width: 800, height: 10 },
+      { x: 200, y: 10, width: 10, height: 200 },
+      { x: 200, y: 200, width: 400, height: 10 },
+      { x: 600, y: 200, width: 10, height: 200 },
+      { x: 400, y: 400, width: 200, height: 10 },
+      { x: 10, y: 400, width: 200, height: 10 },
+      { x: 300, y: 300, width: 10, height: 200 },
+    ],
+    animals: [
+      { x: 750, y: 50, radius: 15 },
+      { x: 400, y: 500, radius: 15 },
+    ],
+  },
+  {
+    walls: [
+      { x: 0, y: 0, width: 800, height: 10 },
+      { x: 0, y: 0, width: 10, height: 600 },
+      { x: 790, y: 0, width: 10, height: 600 },
+      { x: 0, y: 590, width: 800, height: 10 },
+      { x: 100, y: 100, width: 600, height: 10 },
+      { x: 100, y: 100, width: 10, height: 400 },
+      { x: 700, y: 100, width: 10, height: 400 },
+      { x: 100, y: 500, width: 600, height: 10 },
+      { x: 300, y: 300, width: 200, height: 10 },
+    ],
+    animals: [
+      { x: 50, y: 550, radius: 15 },
+      { x: 750, y: 550, radius: 15 },
+    ],
+  },
+];
 
-// Generate maze-like obstacles
-for (let i = 0; i < 50; i++) {
-  obstacles.push({
-    x: Math.random() * map.width,
-    y: Math.random() * map.height,
-    width: Math.random() * 100 + 50,
-    height: Math.random() * 100 + 50,
-  });
+// Load the initial maze
+function loadMaze(index) {
+  const maze = mazes[index];
+  animals = maze.animals.map((animal) => ({ ...animal }));
+  maxScore = animals.length;
 }
 
 // Controls
@@ -44,18 +70,13 @@ document.addEventListener('keyup', (e) => {
   if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) player.dx = 0;
 });
 
-// Restart button
-document.getElementById('restart-btn').addEventListener('click', () => {
-  location.reload();
-});
-
-// Check collision with obstacles
-function checkCollision(rect1, rect2) {
+// Check collision with walls
+function checkWallCollision(player, wall) {
   return (
-    rect1.x < rect2.x + rect2.width &&
-    rect1.x + rect1.width > rect2.x &&
-    rect1.y < rect2.y + rect2.height &&
-    rect1.y + rect1.height > rect2.y
+    player.x < wall.x + wall.width &&
+    player.x + player.width > wall.x &&
+    player.y < wall.y + wall.height &&
+    player.y + player.height > wall.y
   );
 }
 
@@ -67,22 +88,22 @@ function checkAnimalCollision(animal) {
   return distance < animal.radius + player.width / 2;
 }
 
-// Update game
+// Update game state
 function update() {
-  if (gameOver) return;
-
-  // Move player
   player.x += player.dx;
   player.y += player.dy;
 
-  // Keep player within map bounds
-  player.x = Math.max(0, Math.min(map.width - player.width, player.x));
-  player.y = Math.max(0, Math.min(map.height - player.height, player.y));
+  // Prevent player from leaving the canvas
+  player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+  player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
 
-  // Check collisions with obstacles
-  for (let obstacle of obstacles) {
-    if (checkCollision(player, obstacle)) {
-      endGame();
+  // Check collisions with walls
+  for (let wall of mazes[currentMapIndex].walls) {
+    if (checkWallCollision(player, wall)) {
+      // Undo movement
+      player.x -= player.dx;
+      player.y -= player.dy;
+      break;
     }
   }
 
@@ -90,63 +111,57 @@ function update() {
   animals.forEach((animal, index) => {
     if (checkAnimalCollision(animal)) {
       score++;
-      animals.splice(index, 1); // Remove the animal
+      animals.splice(index, 1);
     }
   });
 
-  // Game over if all animals are fed
+  // Check if maze is completed
   if (animals.length === 0) {
-    endGame();
+    currentMapIndex++;
+    if (currentMapIndex < mazes.length) {
+      loadMaze(currentMapIndex);
+    } else {
+      alert(`Game Over! Total Score: ${score}`);
+      location.reload();
+    }
   }
 }
 
 // Draw the game
 function draw() {
-  // Clear the screen
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw the map
-  ctx.save();
-  ctx.translate(-player.x + canvas.width / 2, -player.y + canvas.height / 2);
-
-  // Draw obstacles
+  // Draw walls
   ctx.fillStyle = '#555';
-  obstacles.forEach((obs) => {
-    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
-  });
+  for (let wall of mazes[currentMapIndex].walls) {
+    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+  }
 
   // Draw animals
-  animals.forEach((animal) => {
-    ctx.fillStyle = '#ffcc00';
+  ctx.fillStyle = '#ffcc00';
+  for (let animal of animals) {
     ctx.beginPath();
     ctx.arc(animal.x, animal.y, animal.radius, 0, Math.PI * 2);
     ctx.fill();
-  });
+  }
 
   // Draw player
   ctx.fillStyle = '#ff9900';
   ctx.fillRect(player.x, player.y, player.width, player.height);
 
-  ctx.restore();
-
   // Draw score
   ctx.fillStyle = '#fff';
   ctx.font = '20px Arial';
-  ctx.fillText(`Score: ${score}`, 10, 30);
-}
-
-// End the game
-function endGame() {
-  gameOver = true;
-  document.getElementById('game-over').classList.remove('hidden');
-  document.getElementById('final-score').innerText = score;
+  ctx.fillText(`Score: ${score} / ${maxScore}`, 10, 20);
 }
 
 // Game loop
 function gameLoop() {
   update();
   draw();
-  if (!gameOver) requestAnimationFrame(gameLoop);
+  requestAnimationFrame(gameLoop);
 }
 
+// Start the game
+loadMaze(currentMapIndex);
 gameLoop();
