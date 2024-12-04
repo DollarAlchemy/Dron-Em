@@ -3,13 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Drone Food Drop Game</title>
+  <title>Drone Food Drop Deluxe</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Drone Food Drop Game</h1>
-  <p>Use arrow keys to move the drone and press <strong>Space</strong> to drop food for animals!</p>
-  <canvas id="gameCanvas"></canvas>
+  <div id="game-container">
+    <div id="hud">
+      <p>Fuel: <span id="fuel">100%</span></p>
+      <p>Score: <span id="score">0</span></p>
+      <p>Level: <span id="level">1</span></p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="game-over" class="hidden">
+      <h1>Game Over</h1>
+      <p>Your Score: <span id="final-score">0</span></p>
+      <button id="restart-btn">Restart</button>
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
