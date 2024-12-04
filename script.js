@@ -2,101 +2,86 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 canvas.width = 800;
-canvas.height = 500;
+canvas.height = 600;
 
-// Game variables
-let drone = { x: 400, y: 50, width: 50, height: 30, speed: 5, fuel: 100 };
-let foodDrops = [];
-let animals = [
-  { x: 150, y: 400, radius: 20 },
-  { x: 350, y: 400, radius: 20 },
-  { x: 600, y: 400, radius: 20 },
-];
-let score = 0;
-let level = 1;
 let gameOver = false;
+let score = 0;
+let speed = 3;
 
-// Key states
-let keys = {};
-window.addEventListener('keydown', (e) => (keys[e.code] = true));
-window.addEventListener('keyup', (e) => (keys[e.code] = false));
+// Cube player
+const player = {
+  x: canvas.width / 2 - 25,
+  y: canvas.height - 100,
+  width: 50,
+  height: 50,
+  dx: 0,
+};
 
-// Game functions
-function update() {
-  if (gameOver) return;
+// Obstacles
+const obstacles = [];
+let obstacleInterval = 0;
 
-  // Move drone
-  if (keys['ArrowUp'] && drone.y > 0) drone.y -= drone.speed;
-  if (keys['ArrowDown'] && drone.y < canvas.height - drone.height) drone.y += drone.speed;
-  if (keys['ArrowLeft'] && drone.x > 0) drone.x -= drone.speed;
-  if (keys['ArrowRight'] && drone.x < canvas.width - drone.width) drone.x += drone.speed;
+// Controls
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') player.dx = -5;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') player.dx = 5;
+});
 
-  // Fuel consumption
-  drone.fuel -= 0.05;
-  if (drone.fuel <= 0) endGame();
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'ArrowLeft' || e.code === 'KeyA') player.dx = 0;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') player.dx = 0;
+});
 
-  // Drop food
-  if (keys['Space']) {
-    foodDrops.push({ x: drone.x + drone.width / 2, y: drone.y });
-    keys['Space'] = false;
-  }
+// Restart button
+document.getElementById('restart-btn').addEventListener('click', () => {
+  location.reload();
+});
 
-  // Update food drops
-  foodDrops.forEach((food, index) => {
-    food.y += 5;
-    if (food.y > canvas.height) foodDrops.splice(index, 1);
-
-    // Collision with animals
-    animals.forEach((animal) => {
-      const dx = food.x - animal.x;
-      const dy = food.y - animal.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < animal.radius) {
-        score++;
-        foodDrops.splice(index, 1);
-      }
-    });
-  });
-
-  // Level progression
-  if (score >= level * 10) {
-    level++;
-    drone.speed += 1;
-    animals.push({
-      x: Math.random() * (canvas.width - 40) + 20,
-      y: 400,
-      radius: 20,
-    });
-  }
+function drawPlayer() {
+  ctx.fillStyle = '#ff9900';
+  ctx.fillRect(player.x, player.y, player.width, player.height);
 }
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Draw drone
-  ctx.fillStyle = '#000';
-  ctx.fillRect(drone.x, drone.y, drone.width, drone.height);
-
-  // Draw food
-  ctx.fillStyle = '#ff9900';
-  foodDrops.forEach((food) => {
-    ctx.beginPath();
-    ctx.arc(food.x, food.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+function drawObstacles() {
+  ctx.fillStyle = '#ff0000';
+  obstacles.forEach((obs) => {
+    ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
   });
+}
 
-  // Draw animals
-  animals.forEach((animal) => {
-    ctx.fillStyle = '#ffcc00';
-    ctx.beginPath();
-    ctx.arc(animal.x, animal.y, animal.radius, 0, Math.PI * 2);
-    ctx.fill();
+function updateObstacles() {
+  // Add new obstacles
+  if (obstacleInterval % 100 === 0) {
+    const width = Math.random() * (150 - 50) + 50;
+    const x = Math.random() * (canvas.width - width);
+    obstacles.push({ x, y: 0, width, height: 20 });
+  }
+
+  // Move obstacles
+  obstacles.forEach((obs, index) => {
+    obs.y += speed;
+
+    // Check for collision
+    if (
+      player.x < obs.x + obs.width &&
+      player.x + player.width > obs.x &&
+      player.y < obs.y + obs.height &&
+      player.y + player.height > obs.y
+    ) {
+      endGame();
+    }
+
+    // Remove off-screen obstacles
+    if (obs.y > canvas.height) obstacles.splice(index, 1);
   });
+}
 
-  // HUD
-  document.getElementById('fuel').innerText = `${Math.max(0, drone.fuel).toFixed(1)}%`;
-  document.getElementById('score').innerText = score;
-  document.getElementById('level').innerText = level;
+function updatePlayer() {
+  player.x += player.dx;
+
+  // Prevent player from going off-screen
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 }
 
 function endGame() {
@@ -105,14 +90,34 @@ function endGame() {
   document.getElementById('final-score').innerText = score;
 }
 
-document.getElementById('restart-btn').addEventListener('click', () => {
-  location.reload();
-});
+function drawScore() {
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px Arial';
+  ctx.fillText(`Score: ${score}`, 10, 30);
+}
 
 function gameLoop() {
-  update();
-  draw();
-  if (!gameOver) requestAnimationFrame(gameLoop);
+  if (gameOver) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Update game state
+  updatePlayer();
+  updateObstacles();
+
+  // Draw game objects
+  drawPlayer();
+  drawObstacles();
+  drawScore();
+
+  // Increase difficulty
+  score++;
+  if (score % 500 === 0) speed += 0.5;
+
+  // Manage obstacle interval
+  obstacleInterval++;
+
+  requestAnimationFrame(gameLoop);
 }
 
 gameLoop();
