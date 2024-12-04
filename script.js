@@ -9,7 +9,9 @@ let player = { x: 50, y: 50, width: 30, height: 30, dx: 0, dy: 0, speed: 5 };
 let animals = [];
 let score = 0;
 let maxScore = 0;
+let totalAnimals = 0;
 let currentMapIndex = 0;
+let transition = false;
 
 // Maze data
 const mazes = [
@@ -27,8 +29,8 @@ const mazes = [
       { x: 300, y: 300, width: 10, height: 200 },
     ],
     animals: [
-      { x: 750, y: 50, radius: 15 },
-      { x: 400, y: 500, radius: 15 },
+      { x: 750, y: 50, radius: 15, color: '#ffcc00' },
+      { x: 400, y: 500, radius: 15, color: '#00ccff' },
     ],
   },
   {
@@ -44,8 +46,8 @@ const mazes = [
       { x: 300, y: 300, width: 200, height: 10 },
     ],
     animals: [
-      { x: 50, y: 550, radius: 15 },
-      { x: 750, y: 550, radius: 15 },
+      { x: 50, y: 550, radius: 15, color: '#ff9900' },
+      { x: 750, y: 550, radius: 15, color: '#cc00ff' },
     ],
   },
 ];
@@ -54,7 +56,9 @@ const mazes = [
 function loadMaze(index) {
   const maze = mazes[index];
   animals = maze.animals.map((animal) => ({ ...animal }));
-  maxScore = animals.length;
+  maxScore += animals.length;
+  totalAnimals += animals.length;
+  transition = true; // Trigger transition effect
 }
 
 // Controls
@@ -93,21 +97,16 @@ function update() {
   player.x += player.dx;
   player.y += player.dy;
 
-  // Prevent player from leaving the canvas
-  player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
-  player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
-
-  // Check collisions with walls
+  // Check wall collisions
   for (let wall of mazes[currentMapIndex].walls) {
     if (checkWallCollision(player, wall)) {
       // Undo movement
       player.x -= player.dx;
       player.y -= player.dy;
-      break;
     }
   }
 
-  // Check collisions with animals
+  // Check animal collisions
   animals.forEach((animal, index) => {
     if (checkAnimalCollision(animal)) {
       score++;
@@ -116,12 +115,12 @@ function update() {
   });
 
   // Check if maze is completed
-  if (animals.length === 0) {
+  if (animals.length === 0 && !transition) {
     currentMapIndex++;
     if (currentMapIndex < mazes.length) {
       loadMaze(currentMapIndex);
     } else {
-      alert(`Game Over! Total Score: ${score}`);
+      alert(`Game Over! Total Score: ${score} / ${totalAnimals}`);
       location.reload();
     }
   }
@@ -138,12 +137,12 @@ function draw() {
   }
 
   // Draw animals
-  ctx.fillStyle = '#ffcc00';
-  for (let animal of animals) {
+  animals.forEach((animal) => {
+    ctx.fillStyle = animal.color;
     ctx.beginPath();
     ctx.arc(animal.x, animal.y, animal.radius, 0, Math.PI * 2);
     ctx.fill();
-  }
+  });
 
   // Draw player
   ctx.fillStyle = '#ff9900';
@@ -152,11 +151,21 @@ function draw() {
   // Draw score
   ctx.fillStyle = '#fff';
   ctx.font = '20px Arial';
-  ctx.fillText(`Score: ${score} / ${maxScore}`, 10, 20);
+  ctx.fillText(`Score: ${score} / ${totalAnimals}`, 10, 20);
 }
 
 // Game loop
 function gameLoop() {
+  if (transition) {
+    ctx.fillStyle = '#000';
+    ctx.fillText('Loading...', canvas.width / 2 - 50, canvas.height / 2);
+    setTimeout(() => {
+      transition = false;
+      requestAnimationFrame(gameLoop);
+    }, 1000);
+    return;
+  }
+
   update();
   draw();
   requestAnimationFrame(gameLoop);
